@@ -24,3 +24,20 @@ export async function getUserPortfolio(req: Request, res: Response, next: NextFu
     next(err);
   }
 }
+
+export async function searchUsers(req: Request, res: Response, next: NextFunction) {
+  try {
+    const search = String(req.query["search"] ?? "").trim();
+    if (search.length < 4) {
+      res.status(400).json({
+        error: "ValidationError",
+        message: "Search query must be at least 4 characters long",
+      });
+      return;
+    }
+    const users = await userService.searchUsers(search);
+    res.json(users);
+  } catch (err) {
+    next(err);
+  }
+}
