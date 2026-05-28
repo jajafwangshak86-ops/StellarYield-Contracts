@@ -1,9 +1,6 @@
 import type { Request, Response, NextFunction } from "express";
-import { UserService } from "../../services/user.js";
 import { query } from "../../db/index.js";
 import { indexer } from "../../services/indexerSingleton.js";
-
-const userService = new UserService();
 
 export async function getAdminStats(_req: Request, res: Response, next: NextFunction) {
   try {
@@ -41,7 +38,7 @@ export async function getAdminEvents(req: Request, res: Response, next: NextFunc
   try {
     const { contractId, eventType } = req.query as Record<string, string | undefined>;
     const params: any[] = [];
-    let where: string[] = [];
+    const where: string[] = [];
 
     if (contractId) {
       params.push(contractId);

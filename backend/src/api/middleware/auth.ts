@@ -8,11 +8,9 @@ interface ApiKey {
   label: string | null;
 }
 
-declare global {
-  namespace Express {
-    interface Request {
-      apiKey?: ApiKey;
-    }
+declare module "express-serve-static-core" {
+  interface Request {
+    apiKey?: ApiKey;
   }
 }
 
