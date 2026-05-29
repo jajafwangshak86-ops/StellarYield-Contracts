@@ -15,6 +15,7 @@ export interface Vault {
   state: VaultState;
   totalAssets: string;
   totalSupply: string;
+  depositorCount: number;
   createdAt: Date;
   updatedAt: Date;
 }
