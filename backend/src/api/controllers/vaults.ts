@@ -1,5 +1,6 @@
 import type { Request, Response, NextFunction } from "express";
 import { VaultService } from "../../services/vault.js";
+import { readTotalAssets, readVaultState } from "../../services/stellar.js";
 
 const vaultService = new VaultService();
 
@@ -61,6 +62,30 @@ export async function getVault(req: Request, res: Response, next: NextFunction) 
     res.json(vault);
   } catch (err) {
     next(err);
+  }
+}
+
+export async function getVaultLiveState(req: Request, res: Response) {
+  try {
+    const state = await readVaultState(String(req.params["contractId"]));
+    res.json({ state });
+  } catch (err) {
+    res.status(500).json({
+      error: "RpcError",
+      message: "Failed to read live vault state from chain",
+    });
+  }
+}
+
+export async function getVaultLiveTotalAssets(req: Request, res: Response) {
+  try {
+    const totalAssets = await readTotalAssets(String(req.params["contractId"]));
+    res.json({ totalAssets: totalAssets.toString() });
+  } catch (err) {
+    res.status(500).json({
+      error: "RpcError",
+      message: "Failed to read live total assets from chain",
+    });
   }
 }
 

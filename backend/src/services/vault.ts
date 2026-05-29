@@ -10,6 +10,38 @@ interface ListVaultsOptions {
   order: "asc" | "desc";
 }
 
+interface VaultRow {
+  id: number;
+  contract_id: string;
+  factory_id: string | null;
+  asset: string;
+  name: string | null;
+  symbol: string | null;
+  state: string;
+  total_assets: string;
+  total_supply: string;
+  depositor_count: number;
+  created_at: Date;
+  updated_at: Date;
+}
+
+function mapVaultRow(row: VaultRow): Vault {
+  return {
+    id: row.id,
+    contractId: row.contract_id,
+    factoryId: row.factory_id,
+    asset: row.asset,
+    name: row.name,
+    symbol: row.symbol,
+    state: row.state as any,
+    totalAssets: row.total_assets,
+    totalSupply: row.total_supply,
+    depositorCount: row.depositor_count,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
 export class VaultService {
   async listVaults(opts: ListVaultsOptions): Promise<PaginatedResponse<Vault>> {
     const { page, pageSize, state, sort, order } = opts;
@@ -18,54 +50,37 @@ export class VaultService {
     const sortDirection = order === "asc" ? "ASC" : "DESC";
 
     // Build WHERE clause if state filter is provided
-    const whereClause = state ? "WHERE state = $3" : "";
+    const whereClause = state ? "WHERE v.state = $3" : "";
     const params: any[] = [pageSize, offset];
     if (state) params.push(state);
 
     // Query vaults with pagination
-    const vaults = await query<{
-      id: number;
-      contract_id: string;
-      factory_id: string | null;
-      asset: string;
-      name: string | null;
-      symbol: string | null;
-      state: string;
-      total_assets: string;
-      total_supply: string;
-      created_at: Date;
-      updated_at: Date;
-    }>(
-      `SELECT id, contract_id, factory_id, asset, name, symbol, state, 
-              total_assets, total_supply, created_at, updated_at
-       FROM vaults
+    const vaults = await query<VaultRow>(
+      `SELECT v.id, v.contract_id, v.factory_id, v.asset, v.name, v.symbol, v.state,
+              v.total_assets, v.total_supply, v.created_at, v.updated_at,
+              COALESCE((
+                SELECT COUNT(*)::int
+                FROM user_vault_positions uvp
+                WHERE uvp.vault_id = v.id AND uvp.shares > 0
+              ), 0) AS depositor_count
+       FROM vaults v
        ${whereClause}
-       ORDER BY ${sortColumn} ${sortDirection}
+       ORDER BY v.${sortColumn} ${sortDirection}
        LIMIT $1 OFFSET $2`,
       params,
     );
 
     // Get total count
     const countResult = await query<{ count: string }>(
-      `SELECT COUNT(*) as count FROM vaults ${whereClause}`,
+      `SELECT COUNT(*) as count
+       FROM vaults v
+       ${state ? "WHERE v.state = $1" : ""}`,
       state ? [state] : [],
     );
     const total = parseInt(countResult[0]?.count ?? "0", 10);
 
     // Map database rows to Vault type
-    const data: Vault[] = vaults.map((row) => ({
-      id: row.id,
-      contractId: row.contract_id,
-      factoryId: row.factory_id,
-      asset: row.asset,
-      name: row.name,
-      symbol: row.symbol,
-      state: row.state as any,
-      totalAssets: row.total_assets,
-      totalSupply: row.total_supply,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
-    }));
+    const data: Vault[] = vaults.map(mapVaultRow);
 
     return {
       data,
@@ -83,79 +98,40 @@ export class VaultService {
   }
 
   async listVaultsByFactory(factoryId: string): Promise<Vault[]> {
-    const rows = await query<{
-      id: number;
-      contract_id: string;
-      factory_id: string | null;
-      asset: string;
-      name: string | null;
-      symbol: string | null;
-      state: string;
-      total_assets: string;
-      total_supply: string;
-      created_at: Date;
-      updated_at: Date;
-    }>(
-      `SELECT id, contract_id, factory_id, asset, name, symbol, state,
-              total_assets, total_supply, created_at, updated_at
-       FROM vaults
-       WHERE factory_id = $1
-       ORDER BY created_at DESC`,
+    const rows = await query<VaultRow>(
+      `SELECT v.id, v.contract_id, v.factory_id, v.asset, v.name, v.symbol, v.state,
+              v.total_assets, v.total_supply, v.created_at, v.updated_at,
+              COALESCE((
+                SELECT COUNT(*)::int
+                FROM user_vault_positions uvp
+                WHERE uvp.vault_id = v.id AND uvp.shares > 0
+              ), 0) AS depositor_count
+       FROM vaults v
+       WHERE v.factory_id = $1
+       ORDER BY v.created_at DESC`,
       [factoryId],
     );
 
-    return rows.map((row) => ({
-      id: row.id,
-      contractId: row.contract_id,
-      factoryId: row.factory_id,
-      asset: row.asset,
-      name: row.name,
-      symbol: row.symbol,
-      state: row.state as any,
-      totalAssets: row.total_assets,
-      totalSupply: row.total_supply,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
-    }));
+    return rows.map(mapVaultRow);
   }
 
   async getVault(contractId: string): Promise<Vault | null> {
-    const rows = await query<{
-      id: number;
-      contract_id: string;
-      factory_id: string | null;
-      asset: string;
-      name: string | null;
-      symbol: string | null;
-      state: string;
-      total_assets: string;
-      total_supply: string;
-      created_at: Date;
-      updated_at: Date;
-    }>(
-      `SELECT id, contract_id, factory_id, asset, name, symbol, state,
-              total_assets, total_supply, created_at, updated_at
-       FROM vaults
-       WHERE contract_id = $1`,
+    const rows = await query<VaultRow>(
+      `SELECT v.id, v.contract_id, v.factory_id, v.asset, v.name, v.symbol, v.state,
+              v.total_assets, v.total_supply, v.created_at, v.updated_at,
+              COALESCE((
+                SELECT COUNT(*)::int
+                FROM user_vault_positions uvp
+                WHERE uvp.vault_id = v.id AND uvp.shares > 0
+              ), 0) AS depositor_count
+       FROM vaults v
+       WHERE v.contract_id = $1`,
       [contractId],
     );
 
     if (rows.length === 0) return null;
 
-    const row = rows[0];
-    return {
-      id: row.id,
-      contractId: row.contract_id,
-      factoryId: row.factory_id,
-      asset: row.asset,
-      name: row.name,
-      symbol: row.symbol,
-      state: row.state as any,
-      totalAssets: row.total_assets,
-      totalSupply: row.total_supply,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
-    };
+    return mapVaultRow(rows[0]);
   }
 
   async getVaultPositions(contractId: string): Promise<UserVaultPosition[]> {
