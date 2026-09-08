@@ -330,9 +330,10 @@ export async function getApiKeys(_req: Request, res: Response, next: NextFunctio
       deactivated_at: Date | null;
       allowed_methods: string[] | null;
       allowed_cidrs: string[] | null;
+      description: string | null;
     }>(
       `SELECT id, label, role, created_at, expires_at, last_used_at, active, deactivated_at,
-              allowed_methods, allowed_cidrs
+              allowed_methods, allowed_cidrs, description
        FROM api_keys ORDER BY created_at DESC`,
     );
 
@@ -352,6 +353,7 @@ export async function getApiKeys(_req: Request, res: Response, next: NextFunctio
         allowedMethods: row.allowed_methods ?? null,
         // null means the key may be used from any IP (#928)
         allowedCidrs: row.allowed_cidrs ?? null,
+        description: row.description ?? null,
       })),
     );
   } catch (err) {
@@ -1761,6 +1763,55 @@ export async function vacuumDatabase(req: Request, res: Response, next: NextFunc
     await logAdminAudit(req, "vacuum_database", "/api/v1/admin/db/vacuum");
 
     res.json({ ok: true, tables: targetTables, analyze, command });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getApiDiff(req: Request, res: Response, next: NextFunction) {
+  try {
+    const from = req.query["from"] as string | undefined;
+    const to = req.query["to"] as string | undefined;
+
+    if (!from || !to) {
+      res.status(400).json({ error: "BadRequest", message: "Both 'from' and 'to' query parameters are required" });
+      return;
+    }
+
+    const validVersions = ["v1", "v2"];
+    if (!validVersions.includes(from) || !validVersions.includes(to)) {
+      res.status(400).json({ error: "BadRequest", message: "Invalid version. Only 'v1' and 'v2' are supported" });
+      return;
+    }
+
+    const { readFileSync } = await import("node:fs");
+    const { resolve, dirname } = await import("node:path");
+    const { fileURLToPath } = await import("node:url");
+
+    const __dirname = dirname(fileURLToPath(import.meta.url));
+    const openapiDir = resolve(__dirname, "../../openapi");
+
+    let fromSpec: { paths?: Record<string, unknown> };
+    let toSpec: { paths?: Record<string, unknown> };
+
+    try {
+      fromSpec = JSON.parse(readFileSync(resolve(openapiDir, `${from}.json`), "utf8"));
+      toSpec = JSON.parse(readFileSync(resolve(openapiDir, `${to}.json`), "utf8"));
+    } catch (_err) {
+      res.status(500).json({ error: "InternalServerError", message: "Failed to load OpenAPI spec files" });
+      return;
+    }
+
+    const fromPaths = Object.keys(fromSpec.paths ?? {});
+    const toPaths = Object.keys(toSpec.paths ?? {});
+
+    const added = toPaths.filter((p) => !fromPaths.includes(p));
+    const removed = fromPaths.filter((p) => !toPaths.includes(p));
+    const modified = fromPaths
+      .filter((p) => toPaths.includes(p))
+      .filter((p) => JSON.stringify(fromSpec.paths?.[p]) !== JSON.stringify(toSpec.paths?.[p]));
+
+    res.json({ added, removed, modified });
   } catch (err) {
     next(err);
   }

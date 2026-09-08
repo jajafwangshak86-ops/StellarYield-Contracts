@@ -70,14 +70,14 @@ describe("API Key Description (#946)", () => {
 
       expect(next).not.toHaveBeenCalled();
       expect(res.json).toHaveBeenCalledWith([
-        {
+        expect.objectContaining({
           id: 1,
           label: "test-key",
           role: "admin",
           createdAt: new Date("2024-01-01"),
           expiresAt: null,
           description: "Test API key description",
-        },
+        }),
       ]);
     });
 
@@ -99,14 +99,14 @@ describe("API Key Description (#946)", () => {
 
       expect(next).not.toHaveBeenCalled();
       expect(res.json).toHaveBeenCalledWith([
-        {
+        expect.objectContaining({
           id: 2,
           label: "another-key",
           role: "readonly",
           createdAt: new Date("2024-01-02"),
           expiresAt: null,
           description: null,
-        },
+        }),
       ]);
     });
   });

@@ -36,6 +36,7 @@ describe("NotificationService.notify — per-user preferences (#990)", () => {
 
   it("skips delivery when the receiver opted out of the event/channel", async () => {
     mockQuery
+      .mockResolvedValueOnce([]) // global opt-out flag: enabled by default (#994)
       .mockResolvedValueOnce([WEBHOOK]) // active webhooks
       .mockResolvedValueOnce([{ enabled: false }]); // preference lookup
 
@@ -46,6 +47,7 @@ describe("NotificationService.notify — per-user preferences (#990)", () => {
 
   it("delivers when the receiver has no preference row (default enabled)", async () => {
     mockQuery
+      .mockResolvedValueOnce([]) // global opt-out flag: enabled by default (#994)
       .mockResolvedValueOnce([WEBHOOK]) // active webhooks
       .mockResolvedValueOnce([]); // no preference row
 
@@ -58,11 +60,12 @@ describe("NotificationService.notify — per-user preferences (#990)", () => {
   });
 
   it("does not filter broadcast events lacking a subject address", async () => {
+    mockQuery.mockResolvedValueOnce([]); // global opt-out flag: enabled by default (#994)
     mockQuery.mockResolvedValueOnce([WEBHOOK]);
 
     await svc.notify("yield_distributed", { contractId: "CVAULT", amount: "100" });
 
-    expect(mockQuery).toHaveBeenCalledTimes(1); // no preference lookup
+    expect(mockQuery).toHaveBeenCalledTimes(2); // opt-out lookup + webhooks, no preference lookup
     expect(mockSend).toHaveBeenCalled();
   });
 });

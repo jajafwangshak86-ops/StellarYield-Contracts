@@ -17,7 +17,6 @@ import { validateRouter } from "./api/routes/validate.js";
 import { codegenRouter } from "./api/routes/codegen.js";
 import { notificationsRouter } from "./api/routes/notifications.js";
 import { analyticsRouter } from "./api/routes/analytics.js";
-import { proxyRouter } from "./api/routes/proxy.js";
 import { errorHandler } from "./api/middleware/errors.js";
 import { requestId } from "./api/middleware/requestId.js";
 import { requestContext } from "./api/middleware/requestContext.js";
@@ -26,8 +25,7 @@ import { cacheControl } from "./api/middleware/cacheControl.js";
 import { internalAuth } from "./api/middleware/internalAuth.js";
 import { internalRouter } from "./api/routes/internal.js";
 import { publicLimiter, authLimiter } from "./api/middleware/rateLimit.js";
-import { staticCacheMiddleware, cacheResponse, getCachedResponse } from "./api/middleware/responseCache.js";
-import { queryTimeoutMiddleware } from "./api/middleware/queryTimeout.js";
+import { cacheResponse } from "./api/middleware/responseCache.js";
 
 // Cache static responses at startup
 function initStaticCache(): void {

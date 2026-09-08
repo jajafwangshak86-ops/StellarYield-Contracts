@@ -1,6 +1,7 @@
 import { createHash } from "crypto";
 import type { Request, Response, NextFunction } from "express";
-import jwt, { type JwtPayload, TokenExpiredError } from "jsonwebtoken";
+import jwt from "jsonwebtoken";
+import type { JwtPayload } from "jsonwebtoken";
 import { query } from "../../db/index.js";
 import { logger } from "../../logger.js";
 import { config } from "../../config.js";
@@ -37,17 +38,6 @@ const READ_ONLY_METHODS = new Set(["GET", "HEAD"]);
 const AUTH_FAIL_LOCKOUT_THRESHOLD = 20;
 const AUTH_FAIL_LOCKOUT_TTL_SECONDS = 15 * 60;
 
-async function lookupApiKeyByPlaintext(plaintext: string): Promise<ApiKey | null> {
-  const keyHash = createHash("sha256").update(plaintext).digest("hex");
-
-  try {
-    const rows = (await query<ApiKey>(
-      `SELECT id, role, label, expires_at AS "expiresAt", last_used_at AS "lastUsedAt", active,
-              allowed_methods AS "allowedMethods", rate_limit_override AS "rateLimitOverride"
-       FROM api_keys WHERE key_hash = $1`,
-      [keyHash],
-    )) ?? [];
-    return rows[0] ?? null;
 function parseIpv4(ip: string): number {
   const parts = ip.split(".").map(Number);
   if (parts.length !== 4 || parts.some((p) => isNaN(p) || p < 0 || p > 255)) {
@@ -133,8 +123,8 @@ async function lookupApiKeyByPlaintext(plaintext: string): Promise<ApiKey | null
   try {
     const rows = (await query<ApiKey>(
       `SELECT id, role, label, expires_at AS "expiresAt", last_used_at AS "lastUsedAt", active,
-              allowed_methods AS "allowedMethods", rate_limit_override AS "rateLimitOverride"
-              allowed_methods AS "allowedMethods", allowed_cidrs AS "allowedCidrs"
+              allowed_methods AS "allowedMethods", rate_limit_override AS "rateLimitOverride",
+              allowed_cidrs AS "allowedCidrs"
        FROM api_keys WHERE key_hash = $1`,
       [keyHash],
     )) ?? [];
@@ -328,7 +318,7 @@ export function requireApiKey(options?: { role?: string; minRole?: "readonly" | 
         return;
       }
     } catch (error) {
-      if (error instanceof TokenExpiredError) {
+      if (error instanceof jwt.TokenExpiredError) {
         logger.info({
           event: "auth_attempt",
           success: false,

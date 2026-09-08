@@ -41,6 +41,7 @@ import {
   getSecurityEvents,
   toggleVaultArchiveExclusion,
   verifyArchiveConsistency,
+  getApiDiff,
 } from "../controllers/admin.js";
 import { requireApiKey } from "../middleware/auth.js";
 import { ipAllowlist } from "../middleware/ipAllowlist.js";
